@@ -1,0 +1,21 @@
+---
+export const partial = true;
+import { db, Link, eq } from 'astro:db';
+
+const { id } = Astro.params;
+const linkId = parseInt(id || '0');
+const [link] = await db.select().from(Link).where(eq(Link.id, linkId));
+
+if (!link) return new Response('Not found', { status: 404 });
+---
+
+<div class="card edit-form-card" id={`link-${link.id}`} style="display: flex; flex-direction: column;">
+  <form hx-put={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" style="width: 100%; display: flex; flex-direction: column; gap: 0.5rem;">
+    <input type="text" name="name" class="form-control" value={link.name} required style="padding: 0.4rem 0.6rem; font-size: 0.95rem; background: rgba(0,0,0,0.5);" />
+    <input type="url" name="url" class="form-control" value={link.url} required style="padding: 0.4rem 0.6rem; font-size: 0.85rem; background: rgba(0,0,0,0.5);" />
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+      <button type="button" class="btn" hx-get={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" style="padding: 0.3rem 0.6rem; font-size: 0.85rem;">Cancel</button>
+      <button type="submit" class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.85rem;">Save</button>
+    </div>
+  </form>
+</div>

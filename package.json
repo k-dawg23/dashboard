@@ -1,0 +1,21 @@
+{
+  "name": "antigravity",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/alpinejs": "^0.4.9",
+    "@astrojs/db": "^0.19.0",
+    "@astrojs/node": "^9.5.4",
+    "@types/alpinejs": "^3.13.11",
+    "alpinejs": "^3.15.8",
+    "astro": "^5.17.1",
+    "htmx.org": "^2.0.8",
+    "playwright": "^1.58.2"
+  }
+}

@@ -1,0 +1,30 @@
+---
+export interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <!-- HTMX imported via unpkg for simplicity in this Astro context. Local works too via script tag but let's just use Astro's explicit bundle. -->
+    <link rel="stylesheet" href="/src/styles/global.css" />
+  </head>
+  <body x-data>
+    <div class="container">
+      <slot />
+    </div>
+    
+    <script>
+      import htmx from 'htmx.org';
+      window.htmx = htmx;
+    </script>
+  </body>
+</html>

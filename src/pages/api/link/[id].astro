@@ -1,0 +1,47 @@
+---
+export const partial = true;
+import { db, Link, eq } from 'astro:db';
+
+const { id } = Astro.params;
+if (!id) return new Response('ID is required', { status: 400 });
+const linkId = parseInt(id);
+
+if (Astro.request.method === 'DELETE') {
+  await db.delete(Link).where(eq(Link.id, linkId));
+  return new Response(null); // Return empty to remove from DOM
+}
+
+if (Astro.request.method === 'PUT') {
+  const formData = await Astro.request.formData();
+  const name = formData.get('name')?.toString();
+  let url = formData.get('url')?.toString();
+  
+  if (!name || !url) return new Response('Missing fields', { status: 400 });
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  
+  await db.update(Link).set({ name, url }).where(eq(Link.id, linkId));
+}
+
+const [link] = await db.select().from(Link).where(eq(Link.id, linkId));
+if (!link) return new Response('Not found', { status: 404 });
+---
+
+<a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer">
+  <div class="link-content">
+    <div class="link-name">{link.name}</div>
+    <div class="link-url">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+      {new URL(link.url).hostname.replace('www.', '')}
+    </div>
+  </div>
+  <div class="actions" @click.prevent="() => {}">
+    <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+    </button>
+    <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+  </div>
+</a>

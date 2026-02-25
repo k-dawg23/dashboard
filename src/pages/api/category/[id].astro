@@ -1,0 +1,14 @@
+---
+export const partial = true;
+import { db, Category, Link, eq } from 'astro:db';
+
+if (Astro.request.method !== 'DELETE') return new Response(null, { status: 405 });
+
+const { id } = Astro.params;
+if (!id) return new Response('ID is required', { status: 400 });
+
+// Astro DB requires manual cascading or deleting children first
+await db.delete(Link).where(eq(Link.categoryId, parseInt(id)));
+await db.delete(Category).where(eq(Category.id, parseInt(id)));
+---
+<!-- Returns empty HTML to remove the targeted element -->

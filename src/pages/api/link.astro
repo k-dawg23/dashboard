@@ -1,0 +1,40 @@
+---
+export const partial = true;
+import { db, Link } from 'astro:db';
+
+if (Astro.request.method !== 'POST') return new Response(null, { status: 405 });
+
+const formData = await Astro.request.formData();
+const categoryId = parseInt(formData.get('categoryId')?.toString() || '0');
+const name = formData.get('name')?.toString();
+let url = formData.get('url')?.toString();
+
+if (!categoryId || !name || !url) return new Response('Missing fields', { status: 400 });
+
+if (!url.startsWith('http://') && !url.startsWith('https://')) {
+  url = 'https://' + url;
+}
+
+const [link] = await db.insert(Link).values({ categoryId, name, url }).returning();
+---
+
+<div hx-swap-oob={`beforeend:#link-grid-${link.categoryId}`}>
+  <a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer" x-init="if (window.htmx) htmx.process($el)">
+    <div class="link-content">
+      <div class="link-name">{link.name}</div>
+      <div class="link-url">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        {new URL(link.url).hostname.replace('www.', '')}
+      </div>
+    </div>
+    <div class="actions" @click.prevent="() => {}">
+      <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      </button>
+      <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </a>
+</div>
+<div id={`empty-state-${link.categoryId}`} hx-swap-oob="delete"></div>

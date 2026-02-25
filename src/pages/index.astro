@@ -1,0 +1,115 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { db, Category, Link, eq } from 'astro:db';
+
+const categories = await db.select().from(Category);
+const links = await db.select().from(Link);
+
+// Group links by category
+const linksByCategory = categories.map(cat => ({
+  ...cat,
+  links: links.filter(link => link.categoryId === cat.id)
+}));
+---
+
+<Layout title="Dashboard">
+  <div class="header">
+    <h1>Dashboard</h1>
+    <button class="btn btn-primary" @click="document.getElementById('add-category-modal').classList.add('open')">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      New Category
+    </button>
+  </div>
+
+  <div class="category-list" id="category-list">
+    {linksByCategory.map(category => (
+      <div class="category-section" id={`category-${category.id}`}>
+        <div class="category-header">
+          <h2>
+            {category.name}
+          </h2>
+          <div class="actions">
+            <button class="icon-btn" @click={`document.getElementById('add-link-modal').classList.add('open'); document.getElementById('add-link-category-id').value = '${category.id}'`} title="Add Link">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button class="icon-btn danger" hx-delete={`/api/category/${category.id}`} hx-target={`#category-${category.id}`} hx-swap="outerHTML" hx-confirm="Are you sure you want to delete this category and all its links?" title="Delete Category">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="link-grid" id={`link-grid-${category.id}`}>
+          {category.links.map(link => (
+            <a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer">
+              <div class="link-content">
+                <div class="link-name">{link.name}</div>
+                <div class="link-url">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  {new URL(link.url).hostname.replace('www.', '')}
+                </div>
+              </div>
+              <div class="actions" @click.prevent="() => {}">
+                <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            </a>
+          ))}
+        </div>
+        {category.links.length === 0 && (
+          <div class="empty-state" id={`empty-state-${category.id}`}>
+            No links yet. Add one to get started!
+          </div>
+        )}
+      </div>
+    ))}
+    {categories.length === 0 && (
+      <div class="empty-state">
+        Create a category to start organizing your links!
+      </div>
+    )}
+  </div>
+
+  <!-- Add Category Modal -->
+  <div id="add-category-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
+    <div class="modal-content">
+      <h3 class="modal-title">New Category</h3>
+      <form hx-post="/api/category" hx-target="#category-list" hx-swap="beforeend" @htmx:after-request="$el.reset(); document.getElementById('add-category-modal').classList.remove('open')">
+        <div class="form-group">
+          <label for="category-name">Name</label>
+          <input type="text" id="category-name" name="name" class="form-control" placeholder="e.g. Work, Social" required autofocus>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" @click="document.getElementById('add-category-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Link Modal -->
+  <div id="add-link-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
+    <div class="modal-content">
+      <h3 class="modal-title">New Link</h3>
+      <!-- We use htmx to post to an endpoint that will append the link to the correct category grid. We don't target a specific grid here directly since the grid ID depends on categoryID. We can solve this by sending HX-Retarget header from the server or just targeting a generic hidden div and using OOB swap for the actual grid. -->
+      <form hx-post="/api/link" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('add-link-modal').classList.remove('open')">
+        <input type="hidden" name="categoryId" id="add-link-category-id">
+        <div class="form-group">
+          <label for="link-name">Name</label>
+          <input type="text" id="link-name" name="name" class="form-control" placeholder="e.g. GitHub" required>
+        </div>
+        <div class="form-group">
+          <label for="link-url">URL</label>
+          <input type="url" id="link-url" name="url" class="form-control" placeholder="https://..." required>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" @click="document.getElementById('add-link-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</Layout>

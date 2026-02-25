@@ -1,0 +1,6 @@
+---
+export const partial = true;
+if (Astro.request.method === 'POST') {
+  return new Response('<div hx-swap-oob="beforeend:#grid"><a class="foo" href="https://google.com">New Link</a></div>');
+}
+---
