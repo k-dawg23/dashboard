@@ -1,9 +1,14 @@
-import { db, Category, Link } from 'astro:db';
+import { db, Panel, Category, Link } from 'astro:db';
 
 export default async function seed() {
-	await db.insert(Category).values([
+	await db.insert(Panel).values([
 		{ id: 1, name: 'Work' },
 		{ id: 2, name: 'Personal' }
+	]);
+
+	await db.insert(Category).values([
+		{ id: 1, panelId: 1, name: 'Work Categories' },
+		{ id: 2, panelId: 2, name: 'Personal Categories' }
 	]);
 
 	await db.insert(Link).values([

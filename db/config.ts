@@ -1,8 +1,16 @@
 import { defineDb, defineTable, column } from 'astro:db';
 
+const Panel = defineTable({
+  columns: {
+    id: column.number({ primaryKey: true }),
+    name: column.text({ unique: true })
+  }
+});
+
 const Category = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
+    panelId: column.number({ references: () => Panel.columns.id }),
     name: column.text({ unique: true })
   }
 });
@@ -17,5 +25,5 @@ const Link = defineTable({
 });
 
 export default defineDb({
-  tables: { Category, Link }
+  tables: { Panel, Category, Link }
 });

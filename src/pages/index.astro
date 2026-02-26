@@ -1,86 +1,191 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { db, Category, Link, eq } from 'astro:db';
+import { db, Panel, Category, Link } from 'astro:db';
 
+const panels = await db.select().from(Panel);
 const categories = await db.select().from(Category);
 const links = await db.select().from(Link);
 
-// Group links by category
-const linksByCategory = categories.map(cat => ({
-  ...cat,
-  links: links.filter(link => link.categoryId === cat.id)
+// Group data
+const dataByPanel = panels.map(panel => ({
+  ...panel,
+  categories: categories.filter(cat => cat.panelId === panel.id).map(cat => ({
+    ...cat,
+    links: links.filter(link => link.categoryId === cat.id)
+  }))
 }));
+
+const initialActivePanel = panels.length > 0 ? panels[0].id : null;
 ---
 
 <Layout title="Dashboard">
+  <div x-data={`{ activePanel: ${initialActivePanel} }`} @panel-created.window="activePanel = $event.detail.id">
   <div class="header">
-    <h1>Dashboard</h1>
-    <button class="btn btn-primary" @click="document.getElementById('add-category-modal').classList.add('open')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      New Category
-    </button>
+    <div class="header-top" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2rem;">
+      <div class="live-clock" x-data="{
+          time: '',
+          dateStr: '',
+          update() {
+            const now = new Date();
+            this.time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            this.dateStr = now.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+          }
+        }"
+        x-init="update(); setInterval(() => update(), 1000)"
+        style="display: flex; flex-direction: column;">
+        <span x-text="time" style="font-size: 1.75rem; font-weight: 700; color: var(--text-color); line-height: 1;"></span>
+        <span x-text="dateStr" style="font-size: 0.9rem; color: var(--text-muted);"></span>
+      </div>
+      <button class="icon-btn" @click="theme = (theme === 'dark' ? 'light' : 'dark')" :title="'Switch to ' + (theme === 'dark' ? 'light' : 'dark') + ' mode'" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 50%; box-shadow: var(--glass-shadow);">
+        <template x-if="theme === 'dark'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </template>
+        <template x-if="theme === 'light'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </template>
+      </button>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <h1>Dashboard</h1>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn" @click="document.getElementById('add-panel-modal').classList.add('open')">
+          New Panel
+        </button>
+        <button class="btn btn-primary" x-show="activePanel" @click="document.getElementById('add-category-modal').classList.add('open'); document.getElementById('add-category-panel-id').value = activePanel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          New Category
+        </button>
+      </div>
+    </div>
   </div>
 
-  <div class="category-list" id="category-list">
-    {linksByCategory.map(category => (
-      <div class="category-section" id={`category-${category.id}`}>
-        <div class="category-header">
-          <h2>
-            {category.name}
-          </h2>
-          <div class="actions">
-            <button class="icon-btn" @click={`document.getElementById('add-link-modal').classList.add('open'); document.getElementById('add-link-category-id').value = '${category.id}'`} title="Add Link">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-            <button class="icon-btn danger" hx-delete={`/api/category/${category.id}`} hx-target={`#category-${category.id}`} hx-swap="outerHTML" hx-confirm="Are you sure you want to delete this category and all its links?" title="Delete Category">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
+  <div class="panel-tabs" id="panel-tabs">
+    {dataByPanel.map(panel => (
+      <div id={`panel-tab-${panel.id}`} class="panel-tab" :class={`{ 'active': activePanel === ${panel.id} }`} data-panel-id={panel.id} @click={`activePanel = ${panel.id}`}>
+        {panel.name}
+        <div class="actions" @click.stop>
+          <button class="icon-btn" @click={`document.getElementById('edit-panel-id').value = '${panel.id}'; document.getElementById('edit-panel-name').value = '${panel.name}'; document.getElementById('edit-panel-modal').classList.add('open')`} title="Edit Panel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="icon-btn danger" hx-delete={`/api/panel/${panel.id}`} hx-target="closest .panel-tab" hx-swap="outerHTML" hx-confirm="Delete this panel and all its categories and links?" title="Delete Panel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
-
-        <div class="link-grid" id={`link-grid-${category.id}`}>
-          {category.links.map(link => (
-            <a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer">
-              <div class="link-content">
-                <div class="link-name">{link.name}</div>
-                <div class="link-url">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                  {new URL(link.url).hostname.replace('www.', '')}
-                </div>
-              </div>
-              <div class="actions" @click.prevent="() => {}">
-                <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                </button>
-                <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-              </div>
-            </a>
-          ))}
-        </div>
-        {category.links.length === 0 && (
-          <div class="empty-state" id={`empty-state-${category.id}`}>
-            No links yet. Add one to get started!
-          </div>
-        )}
       </div>
     ))}
-    {categories.length === 0 && (
+  </div>
+
+  <div id="panels-container">
+    {dataByPanel.map(panel => (
+      <div class="panel-content" x-show={`activePanel === ${panel.id}`} id={`panel-content-${panel.id}`}>
+        <div class="category-list" id={`category-list-${panel.id}`}>
+          {panel.categories.map(category => (
+            <div class="category-section" id={`category-${category.id}`}>
+              <div class="category-header">
+                <h2>{category.name}</h2>
+                <div class="actions">
+                  <button class="icon-btn" @click={`document.getElementById('edit-category-id').value = '${category.id}'; document.getElementById('edit-category-name').value = '${category.name}'; document.getElementById('edit-category-modal').classList.add('open')`} title="Edit Category">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                  <button class="icon-btn" @click={`document.getElementById('add-link-modal').classList.add('open'); document.getElementById('add-link-category-id').value = '${category.id}'`} title="Add Link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </button>
+                  <button class="icon-btn danger" hx-delete={`/api/category/${category.id}`} hx-target={`#category-${category.id}`} hx-swap="outerHTML" hx-confirm="Are you sure you want to delete this category and all its links?" title="Delete Category">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="link-grid" id={`link-grid-${category.id}`}>
+                {category.links.map(link => (
+                  <div hx-swap-oob={`beforeend:#link-grid-${category.id}`}>
+                     <a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer" x-init="if (window.htmx) htmx.process($el)">
+                      <div class="link-content">
+                        <div class="link-name">{link.name}</div>
+                        <div class="link-url">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                          {new URL(link.url).hostname.replace('www.', '')}
+                        </div>
+                      </div>
+                      <div class="actions" @click.prevent="() => {}">
+                        <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                        <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </div>
+                    </a>
+                  </div>
+                ))}
+              </div>
+              {category.links.length === 0 && (
+                <div class="empty-state" id={`empty-state-${category.id}`}>
+                  No links yet. Add one to get started!
+                </div>
+              )}
+            </div>
+          ))}
+          {panel.categories.length === 0 && (
+            <div class="empty-state">
+              Create a category in this panel to start organizing your links!
+            </div>
+          )}
+        </div>
+      </div>
+    ))}
+
+    {panels.length === 0 && (
       <div class="empty-state">
-        Create a category to start organizing your links!
+        Create a new panel to get started!
       </div>
     )}
+  </div>
+
+  <!-- Add Panel Modal -->
+  <div id="add-panel-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
+    <div class="modal-content">
+      <h3 class="modal-title">New Panel</h3>
+      <form hx-post="/api/panel" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('add-panel-modal').classList.remove('open')">
+        <div class="form-group">
+          <label for="panel-name">Name</label>
+          <input type="text" id="panel-name" name="name" class="form-control" placeholder="e.g. Work, Personal" required autofocus>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" @click="document.getElementById('add-panel-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Panel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Panel Modal -->
+  <div id="edit-panel-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
+    <div class="modal-content">
+      <h3 class="modal-title">Edit Panel</h3>
+      <form hx-put="/api/panel" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('edit-panel-modal').classList.remove('open')">
+        <input type="hidden" name="id" id="edit-panel-id">
+        <div class="form-group">
+          <label for="edit-panel-name">Name</label>
+          <input type="text" id="edit-panel-name" name="name" class="form-control" placeholder="e.g. Work, Personal" required autofocus>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" @click="document.getElementById('edit-panel-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Add Category Modal -->
   <div id="add-category-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
     <div class="modal-content">
       <h3 class="modal-title">New Category</h3>
-      <form hx-post="/api/category" hx-target="#category-list" hx-swap="beforeend" @htmx:after-request="$el.reset(); document.getElementById('add-category-modal').classList.remove('open')">
+      <form hx-post="/api/category" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('add-category-modal').classList.remove('open')">
+        <input type="hidden" name="panelId" id="add-category-panel-id">
         <div class="form-group">
           <label for="category-name">Name</label>
-          <input type="text" id="category-name" name="name" class="form-control" placeholder="e.g. Work, Social" required autofocus>
+          <input type="text" id="category-name" name="name" class="form-control" placeholder="e.g. Social, Utilities" required autofocus>
         </div>
         <div class="form-actions">
           <button type="button" class="btn" @click="document.getElementById('add-category-modal').classList.remove('open')">Cancel</button>
@@ -90,11 +195,28 @@ const linksByCategory = categories.map(cat => ({
     </div>
   </div>
 
+  <!-- Edit Category Modal -->
+  <div id="edit-category-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
+    <div class="modal-content">
+      <h3 class="modal-title">Edit Category</h3>
+      <form hx-put="/api/category" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('edit-category-modal').classList.remove('open')">
+        <input type="hidden" name="id" id="edit-category-id">
+        <div class="form-group">
+          <label for="edit-category-name">Name</label>
+          <input type="text" id="edit-category-name" name="name" class="form-control" placeholder="e.g. Social, Utilities" required autofocus>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" @click="document.getElementById('edit-category-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Link Modal -->
   <div id="add-link-modal" class="modal-overlay" @click="if($event.target === $el) $el.classList.remove('open')">
     <div class="modal-content">
       <h3 class="modal-title">New Link</h3>
-      <!-- We use htmx to post to an endpoint that will append the link to the correct category grid. We don't target a specific grid here directly since the grid ID depends on categoryID. We can solve this by sending HX-Retarget header from the server or just targeting a generic hidden div and using OOB swap for the actual grid. -->
       <form hx-post="/api/link" hx-swap="none" @htmx:after-request="$el.reset(); document.getElementById('add-link-modal').classList.remove('open')">
         <input type="hidden" name="categoryId" id="add-link-category-id">
         <div class="form-group">
@@ -111,5 +233,6 @@ const linksByCategory = categories.map(cat => ({
         </div>
       </form>
     </div>
+  </div>
   </div>
 </Layout>

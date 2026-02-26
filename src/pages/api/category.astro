@@ -1,29 +1,51 @@
 ---
 export const partial = true;
-import { db, Category } from 'astro:db';
-
-if (Astro.request.method !== 'POST') return new Response(null, { status: 405 });
+import { db, Category, Link, eq } from 'astro:db';
 
 const formData = await Astro.request.formData();
-const name = formData.get('name')?.toString();
-
-if (!name) return new Response('Name is required', { status: 400 });
-
-// Handle potential unique constraint error (simplistic approach)
 let category;
-try {
-  [category] = await db.insert(Category).values({ name }).returning();
-} catch (e) {
-  return new Response('Category already exists', { status: 400 });
+let links = [];
+const isPut = Astro.request.method === 'PUT';
+const isPost = Astro.request.method === 'POST';
+
+if (isPost) {
+  const panelId = parseInt(formData.get('panelId')?.toString() || '0');
+  const name = formData.get('name')?.toString();
+  if (!name || !panelId) return new Response('Name and panelId are required', { status: 400 });
+  try {
+    [category] = await db.insert(Category).values({ panelId, name }).returning();
+  } catch (e) {
+    return new Response('Category already exists', { status: 400 });
+  }
+} else if (isPut) {
+  const idStr = formData.get('id')?.toString();
+  const name = formData.get('name')?.toString();
+  if (!idStr || !name) return new Response('Invalid data', { status: 400 });
+  try {
+    const id = parseInt(idStr);
+    [category] = await db.update(Category).set({ name }).where(eq(Category.id, id)).returning();
+    links = await db.select().from(Link).where(eq(Link.categoryId, id));
+  } catch (e) {
+    return new Response('Category name might already exist', { status: 400 });
+  }
+} else {
+  return new Response(null, { status: 405 });
 }
 ---
 
-<div class="category-section" id={`category-${category.id}`}>
+<div 
+  class="category-section" 
+  id={`category-${category.id}`} 
+  hx-swap-oob={isPost ? `beforeend:#category-list-${category.panelId}` : 'outerHTML'}
+>
   <div class="category-header">
     <h2>
       {category.name}
     </h2>
     <div class="actions">
+      <button class="icon-btn" @click={`document.getElementById('edit-category-id').value = '${category.id}'; document.getElementById('edit-category-name').value = '${category.name}'; document.getElementById('edit-category-modal').classList.add('open')`} title="Edit Category">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      </button>
       <button class="icon-btn" @click={`document.getElementById('add-link-modal').classList.add('open'); document.getElementById('add-link-category-id').value = '${category.id}'`} title="Add Link">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       </button>
@@ -34,10 +56,33 @@ try {
   </div>
 
   <div class="link-grid" id={`link-grid-${category.id}`}>
+    {links.map(link => (
+      <div hx-swap-oob={`beforeend:#link-grid-${category.id}`}>
+         <a href={link.url} class="card" id={`link-${link.id}`} target="_blank" rel="noopener noreferrer" x-init="if (window.htmx) htmx.process($el)">
+          <div class="link-content">
+            <div class="link-name">{link.name}</div>
+            <div class="link-url">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+              {new URL(link.url).hostname.replace('www.', '')}
+            </div>
+          </div>
+          <div class="actions" @click.prevent="() => {}">
+            <button class="icon-btn" hx-get={`/api/link/${link.id}/edit`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Edit Link">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="icon-btn danger" hx-delete={`/api/link/${link.id}`} hx-target={`#link-${link.id}`} hx-swap="outerHTML" title="Delete Link">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </a>
+      </div>
+    ))}
   </div>
-  <div class="empty-state" id={`empty-state-${category.id}`}>
-    No links yet. Add one to get started!
-  </div>
+  {links.length === 0 && (
+    <div class="empty-state" id={`empty-state-${category.id}`}>
+      No links yet. Add one to get started!
+    </div>
+  )}
 </div>
-<!-- Also remove the global empty state if it's there -->
-<div id="global-empty-state" hx-swap-oob="delete"></div>
+
+

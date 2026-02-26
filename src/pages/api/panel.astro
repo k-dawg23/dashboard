@@ -1,0 +1,75 @@
+---
+export const partial = true;
+import { db, Panel, Category, Link, eq } from 'astro:db';
+
+const formData = await Astro.request.formData();
+let panel;
+const isPut = Astro.request.method === 'PUT';
+const isPost = Astro.request.method === 'POST';
+
+if (isPost) {
+  const name = formData.get('name')?.toString();
+  if (!name) return new Response('Name is required', { status: 400 });
+  try {
+    [panel] = await db.insert(Panel).values({ name }).returning();
+  } catch (e) {
+    return new Response('Panel already exists', { status: 400 });
+  }
+} else if (isPut) {
+  const idStr = formData.get('id')?.toString();
+  const name = formData.get('name')?.toString();
+  if (!idStr || !name) return new Response('Invalid data', { status: 400 });
+  try {
+    const id = parseInt(idStr);
+    [panel] = await db.update(Panel).set({ name }).where(eq(Panel.id, id)).returning();
+  } catch (e) {
+    return new Response('Panel name might already exist', { status: 400 });
+  }
+} else {
+  return new Response(null, { status: 405 });
+}
+---
+
+{isPost ? (
+  <Fragment>
+    <div hx-swap-oob="beforeend:#panel-tabs">
+      <div id={`panel-tab-${panel.id}`} class="panel-tab" :class={`{ 'active': activePanel === ${panel.id} }`} data-panel-id={panel.id} @click={`activePanel = ${panel.id}`}>
+        {panel.name}
+        <div class="actions" @click.stop>
+          <button class="icon-btn" @click={`document.getElementById('edit-panel-id').value = '${panel.id}'; document.getElementById('edit-panel-name').value = '${panel.name}'; document.getElementById('edit-panel-modal').classList.add('open')`} title="Edit Panel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="icon-btn danger" hx-delete={`/api/panel/${panel.id}`} hx-target="closest .panel-tab" hx-swap="outerHTML" hx-confirm="Delete this panel and all its categories and links?" title="Delete Panel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div hx-swap-oob="beforeend:#panels-container">
+      <div class="panel-content" x-show={`activePanel === ${panel.id}`} id={`panel-content-${panel.id}`}>
+        <div class="category-list" id={`category-list-${panel.id}`}>
+          <div class="empty-state">
+            Create a category in this panel to start organizing your links!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div hx-swap-oob="beforeend:body">
+      <div x-data x-init={`$dispatch('panel-created', { id: ${panel.id} }); $timer = setTimeout(() => $el.remove(), 50)`}></div>
+    </div>
+  </Fragment>
+) : (
+  <div id={`panel-tab-${panel.id}`} class="panel-tab" :class={`{ 'active': activePanel === ${panel.id} }`} data-panel-id={panel.id} @click={`activePanel = ${panel.id}`} hx-swap-oob="outerHTML">
+    {panel.name}
+    <div class="actions" @click.stop>
+      <button class="icon-btn" @click={`document.getElementById('edit-panel-id').value = '${panel.id}'; document.getElementById('edit-panel-name').value = '${panel.name}'; document.getElementById('edit-panel-modal').classList.add('open')`} title="Edit Panel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      </button>
+      <button class="icon-btn danger" hx-delete={`/api/panel/${panel.id}`} hx-target="closest .panel-tab" hx-swap="outerHTML" hx-confirm="Delete this panel and all its categories and links?" title="Delete Panel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </div>
+)}

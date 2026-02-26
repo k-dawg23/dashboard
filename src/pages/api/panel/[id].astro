@@ -1,0 +1,21 @@
+---
+export const partial = true;
+import { db, Panel, Category, Link, eq } from 'astro:db';
+
+if (Astro.request.method !== 'DELETE') return new Response(null, { status: 405 });
+
+const { id } = Astro.params;
+if (!id) return new Response('ID is required', { status: 400 });
+const panelId = parseInt(id);
+
+// Delete children
+const cats = await db.select().from(Category).where(eq(Category.panelId, panelId));
+for (const cat of cats) {
+  await db.delete(Link).where(eq(Link.categoryId, cat.id));
+}
+await db.delete(Category).where(eq(Category.panelId, panelId));
+await db.delete(Panel).where(eq(Panel.id, panelId));
+---
+
+<!-- Return empty to remove the tab. Also remove the content div OOB -->
+<div id={`panel-content-${panelId}`} hx-swap-oob="delete"></div>

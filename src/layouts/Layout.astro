@@ -17,7 +17,11 @@ const { title } = Astro.props;
     <!-- HTMX imported via unpkg for simplicity in this Astro context. Local works too via script tag but let's just use Astro's explicit bundle. -->
     <link rel="stylesheet" href="/src/styles/global.css" />
   </head>
-  <body x-data>
+  <body x-data="{ 
+    theme: localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') 
+  }" 
+  x-init="$watch('theme', val => localStorage.setItem('theme', val))"
+  :class="{ 'light-theme': theme === 'light' }">
     <div class="container">
       <slot />
     </div>
