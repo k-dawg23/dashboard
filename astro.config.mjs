@@ -9,5 +9,8 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone'
   }),
-  integrations: [db(), alpinejs()]
+  integrations: [db(), alpinejs()],
+  security: {
+    checkOrigin: false
+  }
 });

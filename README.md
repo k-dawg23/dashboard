@@ -49,28 +49,31 @@ A clean, minimal "New Tab" personal link dashboard built with the **AHA Stack** 
 
 ### Running the App Locally
 
-Start the development server:
+For daily use as a personal dashboard, it is **highly recommended** to use the persistent mode. This ensures your data is saved in a local `data/` folder and remains there even if you close the app or restart your computer.
 
+#### 1. Persistent Mode (Recommended)
+This command intelligently handles the app for you. It will build the project on the first run and initialize your database. On every subsequent run, it skips the build to ensure your data is **never overwritten**.
+
+```bash
+npm run start
+```
+
+#### 2. Development Mode
+Use this only if you are modifying the code. **Note:** By design, `astro dev` resets the local database to a clean state on every restart to ensure a predictable development environment.
 ```bash
 npm run dev
 ```
 
-Astro will automatically initialize a local SQLite database and seed it with initial data.
-
 Open your web browser and navigate to:
 **[http://localhost:4321](http://localhost:4321)**
 
-### Building for Production
-
-To build the project for production:
-
-1. Build the project:
+### Remote Storage (Optional)
+If you want to sync your dashboard across multiple devices, Astro DB supports remote databases like **Turso**.
+1. Create a free account at [Turso](https://turso.tech/).
+2. Get your `ASTRO_DB_REMOTE_URL` and `ASTRO_DB_APP_TOKEN`.
+3. Run with `--remote`:
    ```bash
-   npm run build
-   ```
-2. Start the production server:
-   ```bash
-   node ./dist/server/entry.mjs
+   astro dev --remote
    ```
 
 ---

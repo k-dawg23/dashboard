@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "dev:persistent": "ASTRO_DATABASE_FILE=./data/content.db astro dev",
+    "start": "node ./scripts/start.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
